@@ -1,4 +1,5 @@
 <?php
+session_start();
 $host = "localhost"; $user = "root"; $pass = ""; $db = "sistema_facial";
 $conn = new mysqli($host, $user, $pass, $db);
 $mensaje = "";
@@ -34,9 +35,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 file_put_contents($ruta_carpeta . "cam_" . time() . "_$index.jpg", $datos);
             }
         }
-        $mensaje = "<div style='color:green; font-weight:bold; text-align:center; margin-top:10px;'>¡Registro exitoso para $nombre!</div>";
+        $_SESSION['status'] = "¡Registro exitoso para $nombre!";
+        header("Location: index.php");
+        exit();
     } else {
-        $mensaje = "<div style='color:red; font-weight:bold; text-align:center; margin-top:10px;'>Error en BD: " . $conn->error . "</div>";
+        $mensaje = "Error en BD: " . $conn->error;
     }
 }
 ?>
