@@ -66,7 +66,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .btn-capture { background: #28a745; margin-bottom: 15px; }
         .btn-submit { background: #1a1a1a; margin-top: 20px; font-size: 18px; }
         label { font-size: 14px; font-weight: bold; color: #555; display: block; margin-top: 10px; }
-        .contador { font-size: 14px; text-align: center; color: #666; font-weight: bold; }
+        .contador { font-size: 14px; text-align: center; color: #666; font-weight: bold; margin-top: 5px; }
+        .contador.error { color: #dc3545; }
+        .contador.exito { color: #28a745; }
     </style>
 </head>
 <body>
@@ -81,7 +83,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <input type="number" name="telefono" placeholder="WhatsApp (10 dígitos: 669...)" required>
         
         <label>Opción 1: Seleccionar de la Galería</label>
-        <input type="file" name="fotos_archivo[]" multiple accept="image/*">
+        <input type="file" id="fotos_archivo" name="fotos_archivo[]" multiple accept="image/*">
 
         <hr>
         <label>Opción 2: Tomar fotos en vivo</label>
@@ -89,7 +91,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <video id="video" autoplay playsinline muted></video>
         </div>
         <button type="button" class="btn-capture" id="snap">📸 Capturar Rostro</button>
-        <div class="contador" id="txtContador">Fotos capturadas: 0</div>
+        <div class="contador error" id="txtContador">Fotos: 0 de 15 requeridas</div>
         <div class="preview-container" id="previsualizacion"></div>
         
         <input type="hidden" name="fotos_base64" id="fotos_base64">
@@ -108,9 +110,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     const previsualizacion = document.getElementById('previsualizacion');
     const fotosInput = document.getElementById('fotos_base64');
     const txtContador = document.getElementById('txtContador');
-    let listaFotos = [];
+    const inputArchivo = document.getElementById('fotos_archivo');
+    const form = document.getElementById('registroForm');
+    
+    let listaFotosCamara = [];
 
-    // 'facingMode: user' solicita explícitamente la cámara frontal (selfie)
+    // Solicita explícitamente la cámara frontal (selfie)
     const constraints = {
         video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
     };
@@ -124,29 +129,58 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             alert("Error: Para usar la cámara, accede mediante HTTPS o localhost, y acepta los permisos."); 
         });
 
+    // Función para calcular el total de fotos (Galería + Cámara) y actualizar el texto
+    function actualizarContador() {
+        const fotosGaleria = inputArchivo.files.length;
+        const fotosCamara = listaFotosCamara.length;
+        const total = fotosGaleria + fotosCamara;
+
+        if (total < 15) {
+            txtContador.className = "contador error";
+            txtContador.innerText = `Fotos: ${total} de 15 requeridas (Galería: ${fotosGaleria}, Cámara: ${fotosCamara})`;
+        } else {
+            txtContador.className = "contador exito";
+            txtContador.innerText = `¡Listo! ${total} fotos preparadas para el sistema.`;
+        }
+    }
+
+    // Escuchar si el usuario añade fotos desde la galería externa
+    inputArchivo.addEventListener('change', actualizarContador);
+
+    // Captura de fotos en vivo
     snap.addEventListener('click', () => {
         const context = canvas.getContext('2d');
         
-        // CORRECCIÓN CLAVE: Ajustamos el canvas al tamaño real del flujo de video actual
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         
-        // Dibujamos manteniendo la proporción exacta
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Extraemos en formato JPEG de buena calidad
         const dataURL = canvas.toDataURL('image/jpeg', 0.85);
-        
-        listaFotos.push(dataURL);
+        listaFotosCamara.push(dataURL);
         
         // Crear elemento visual de previsualización
         const img = document.createElement('img');
         img.src = dataURL;
         previsualizacion.appendChild(img);
         
-        // Actualizar contador y el input oculto
-        txtContador.innerText = `Fotos capturadas: ${listaFotos.length}`;
-        fotosInput.value = JSON.stringify(listaFotos);
+        // Actualizar el input oculto para PHP
+        fotosInput.value = JSON.stringify(listaFotosCamara);
+
+        // Actualizar el conteo en pantalla
+        actualizarContador();
+    });
+
+    // VALIDACIÓN AL ENVIAR FORMULARIO
+    form.addEventListener('submit', (e) => {
+        const fotosGaleria = inputArchivo.files.length;
+        const fotosCamara = listaFotosCamara.length;
+        const totalFotos = fotosGaleria + fotosCamara;
+
+        if (totalFotos < 15) {
+            e.preventDefault(); // Bloquea el envío por completo
+            alert(`No se puede guardar.\nEl sistema requiere mínimo 15 fotos para entrenar la IA.\n\nLlevas actualmente: ${totalFotos} fotos.`);
+        }
     });
 </script>
 
